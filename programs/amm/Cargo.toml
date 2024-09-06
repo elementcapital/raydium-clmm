@@ -28,6 +28,8 @@ anchor-spl = { version = "0.29.0", features = ["metadata"] }
 solana-program = "^1.17.0"
 spl-memo = "4.0.0"
 uint = { git = "https://github.com/raydium-io/parity-common", package = "uint" }
+ethnum = "1.5.0"
+etcommon-bigint = "0.2.10"
 bytemuck = { version = "1.4.0", features = ["derive", "min_const_generics"] }
 arrayref = { version = "0.3.6" }
 solana-security-txt = "1.1.1"

@@ -1,11 +1,13 @@
-use super::big_num::U128;
-use super::big_num::U256;
+// use super::big_num::U128;
+// use super::big_num::U256;
 use super::fixed_point_64;
 use super::full_math::MulDiv;
 use super::tick_math;
 use super::unsafe_math::UnsafeMathTrait;
 use crate::error::ErrorCode;
 use anchor_lang::prelude::*;
+// use bigint::U256;
+use ethnum::U256;
 
 /// Add a signed liquidity delta to liquidity and revert if it overflows or underflows
 ///
@@ -38,20 +40,10 @@ pub fn get_liquidity_from_amount_0(
     if sqrt_ratio_a_x64 > sqrt_ratio_b_x64 {
         std::mem::swap(&mut sqrt_ratio_a_x64, &mut sqrt_ratio_b_x64);
     };
-    let intermediate = U128::from(sqrt_ratio_a_x64)
-        .mul_div_floor(
-            U128::from(sqrt_ratio_b_x64),
-            U128::from(fixed_point_64::Q64),
-        )
-        .unwrap();
+    let intermediate =
+        U256::from(sqrt_ratio_a_x64) * U256::from(sqrt_ratio_b_x64) / fixed_point_64::Q64;
 
-    U128::from(amount_0)
-        .mul_div_floor(
-            intermediate,
-            U128::from(sqrt_ratio_b_x64 - sqrt_ratio_a_x64),
-        )
-        .unwrap()
-        .as_u128()
+    (U256::from(amount_0) * intermediate).as_u128() / (sqrt_ratio_b_x64 - sqrt_ratio_a_x64)
 }
 
 /// Computes the amount of liquidity received for a given amount of token_1 and price range
@@ -66,13 +58,7 @@ pub fn get_liquidity_from_amount_1(
         std::mem::swap(&mut sqrt_ratio_a_x64, &mut sqrt_ratio_b_x64);
     };
 
-    U128::from(amount_1)
-        .mul_div_floor(
-            U128::from(fixed_point_64::Q64),
-            U128::from(sqrt_ratio_b_x64 - sqrt_ratio_a_x64),
-        )
-        .unwrap()
-        .as_u128()
+    u128::from(amount_1) * fixed_point_64::Q64 / (sqrt_ratio_b_x64 - sqrt_ratio_a_x64)
 }
 
 /// Computes the maximum amount of liquidity received for a given amount of token_0, token_1, the current
@@ -176,21 +162,15 @@ pub fn get_delta_amount_0_unsigned(
 
     let numerator_1 = U256::from(liquidity) << fixed_point_64::RESOLUTION;
     let numerator_2 = U256::from(sqrt_ratio_b_x64 - sqrt_ratio_a_x64);
+    let sq_a = U256::from(sqrt_ratio_a_x64);
+    let sq_b = U256::from(sqrt_ratio_b_x64);
 
     assert!(sqrt_ratio_a_x64 > 0);
 
     let result = if round_up {
-        U256::div_rounding_up(
-            numerator_1
-                .mul_div_ceil(numerator_2, U256::from(sqrt_ratio_b_x64))
-                .unwrap(),
-            U256::from(sqrt_ratio_a_x64),
-        )
+        ((numerator_1 * numerator_2 / sq_b) + sq_a - 1) / sq_a
     } else {
-        numerator_1
-            .mul_div_floor(numerator_2, U256::from(sqrt_ratio_b_x64))
-            .unwrap()
-            / U256::from(sqrt_ratio_a_x64)
+        (numerator_1 * numerator_2 / sq_b) / sq_a
     };
     if result > U256::from(u64::MAX) {
         return Err(ErrorCode::MaxTokenOverflow.into());
@@ -210,19 +190,13 @@ pub fn get_delta_amount_1_unsigned(
     if sqrt_ratio_a_x64 > sqrt_ratio_b_x64 {
         std::mem::swap(&mut sqrt_ratio_a_x64, &mut sqrt_ratio_b_x64);
     };
+    let q64 = U256::from(fixed_point_64::Q64);
 
     let result = if round_up {
-        U256::from(liquidity).mul_div_ceil(
-            U256::from(sqrt_ratio_b_x64 - sqrt_ratio_a_x64),
-            U256::from(fixed_point_64::Q64),
-        )
+        (U256::from(liquidity) * U256::from(sqrt_ratio_b_x64 - sqrt_ratio_a_x64) + q64 - 1) / q64
     } else {
-        U256::from(liquidity).mul_div_floor(
-            U256::from(sqrt_ratio_b_x64 - sqrt_ratio_a_x64),
-            U256::from(fixed_point_64::Q64),
-        )
-    }
-    .unwrap();
+        (U256::from(liquidity) * U256::from(sqrt_ratio_b_x64 - sqrt_ratio_a_x64)) / q64
+    };
     if result > U256::from(u64::MAX) {
         return Err(ErrorCode::MaxTokenOverflow.into());
     }

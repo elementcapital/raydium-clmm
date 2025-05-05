@@ -1,7 +1,6 @@
 use anchor_client::{Client, Cluster};
 use anchor_lang::prelude::AccountMeta;
 use anyhow::Result;
-use mpl_token_metadata::state::PREFIX as MPL_PREFIX;
 use solana_sdk::{
     instruction::Instruction, pubkey::Pubkey, signature::Signer, system_program, sysvar,
 };
